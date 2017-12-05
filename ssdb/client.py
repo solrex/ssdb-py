@@ -2176,8 +2176,23 @@ class StrictSSDB(object):
             return hsize(name) > 0
         except:
             return False    
-    
-        
+
+    def info(self, opt=None):
+        """
+        Returns a dictionary containing information about the SSDB server
+
+        The ``section`` option can be used to select a specific section
+        of information
+
+        :param string opt: `cmd` or `leveldb`
+        :return: Server Info Dict
+        :rtype: dict
+        """
+        if opt is None:
+            return self.execute_command('info')
+        else:
+            return self.execute_command('info', opt)
+
 class SSDB(StrictSSDB):
     """
     Provides backwards compatibility with older versions of ssdb-py(1.6.6) that changed
