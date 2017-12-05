@@ -228,13 +228,14 @@ class StrictSSDB(object):
         }
     )
 
-    def __init__(self, host='localhost', port=8888, socket_timeout=None,
+    def __init__(self, host='localhost', port=8888, password=None, socket_timeout=None,
                  connection_pool=None, charset='utf-8', errors='strict',
                  decode_responses=False):
         if not connection_pool:
             kwargs = {
                 'host': host,
                 'port': port,
+                'password': password,
                 'socket_timeout': socket_timeout,
                 'encoding': charset,
                 'encoding_errors': errors,
@@ -420,8 +421,9 @@ class StrictSSDB(object):
         >>> ssdb.expire('not_exist')
         False
         """
-        if isinstance(time, datetime.timedelta):
-            time = time.seconds + time.days * 24 * 3600        
+        if isinstance(ttl, datetime.timedelta):
+            ttl = ttl.seconds + ttl.days * 24 * 3600
+        ttl = get_positive_integer('ttl', ttl)
         return self.execute_command('expire', name, ttl)
 
     def ttl(self, name):
@@ -442,9 +444,7 @@ class StrictSSDB(object):
         >>> ssdb.ttl('not_exist')
         -1
         """
-        if isinstance(time, datetime.timedelta):
-            time = time.seconds + time.days * 24 * 3600        
-        return self.execute_command('expire', name, ttl)    
+        return self.execute_command('ttl', name)
 
     def exists(self, name):
         """

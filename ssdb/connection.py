@@ -227,7 +227,7 @@ class Connection(object):
 
     description_format = "Connection<host=%(host)s,port=%(port)s>"
     
-    def __init__(self, host="127.0.0.1",port=8888,socket_timeout=None,
+    def __init__(self, host="127.0.0.1",port=8888, password=None, socket_timeout=None,
                  socket_connect_timeout=None,socket_keepalive=False,
                  socket_keepalive_options=None,retry_on_timeout=False, 
                  encoding='utf-8', encoding_errors='strict',
@@ -236,6 +236,7 @@ class Connection(object):
         self.pid = os.getpid()        
         self.host = host
         self.port = port
+        self.password = password
         self._sock = None
         self.socket_timeout = socket_timeout
         self.socket_connect_timeout = socket_connect_timeout or socket_timeout
@@ -355,6 +356,10 @@ class Connection(object):
         Initialize the connection
         """
         self._parser.on_connect(self)
+        if self.password:
+            self.send_command("auth", self.password)
+            if nativestr(self.read_response()[0]) != 'ok':
+                raise AuthenticationError("Invalid Password")
 
     def disconnect(self):
         """
