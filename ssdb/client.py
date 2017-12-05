@@ -2,6 +2,7 @@
 from __future__ import with_statement
 from itertools import chain, starmap, izip_longest
 import datetime
+import re
 import sys
 import warnings
 import time as mod_time
@@ -78,6 +79,48 @@ def list_to_int_ordereddict(lst):
     for k,v in list_to_ordereddict(lst).items():
         dst[k] = int(v)
     return dst
+
+def parse_info(lst):
+    res = dict(izip_longest(*[iter(lst[1:])] * 2, fillvalue=None))
+    if 'binlogs' in res:
+        binlogs = re.split(r"[\W\n:]+", res['binlogs'].strip())
+        res['binlogs'] = dict(zip(binlogs[::2], map(int, binlogs[1::2])))
+    if 'data_key_range' in res:
+        data_key_range = re.split(r" *[\n:] +", res['data_key_range'].strip())
+        res['data_key_range'] = dict(zip(data_key_range[::2], data_key_range[1::2]))
+    if 'serv_key_range' in res:
+        serv_key_range = re.split(r" *[\n:] +", res['serv_key_range'].strip())
+        res['serv_key_range'] = dict(zip(serv_key_range[::2], serv_key_range[1::2]))
+    if 'leveldb.stats' in res:
+        leveldb_stats = res.pop('leveldb.stats').strip().split('\n')
+        stats_list = []
+        headers = []
+        for line in leveldb_stats:
+            if line.find('Level') >= 0:
+                headers = line.strip().split()
+            elif line.find('Compactions') >= 0:
+                continue
+            elif line.find('------') == -1:
+                stats = map(int, line.strip().split())
+                stats_dict = dict()
+                for i in range(len(headers)):
+                    stats_dict[headers[i]] = stats[i]
+                if int(stats[0]) == len(stats_list):
+                    stats_list.append(stats_dict)
+        res['leveldb'] = {}
+        res['leveldb']['stats'] = stats_list
+    res['name'] = lst[0]
+    for key in res.keys():
+        if isinstance(res[key], str):
+            if key.find('cmd.') == 0:
+                key_stats = re.split(r"[\t:]+", res.pop(key).strip())
+                key = key.split('.')[1]
+                if 'cmd' not in res:
+                    res['cmd'] = {}
+                res['cmd'][key] = dict(zip(key_stats[::2], map(int, key_stats[1::2])))
+            elif res[key].isdigit():
+                res[key] = int(res[key])
+    return res
 
 def dict_to_list(dct):
     lst = []
@@ -170,12 +213,16 @@ class StrictSSDB(object):
         string_keys_to_dict(
             'multi_zget',
             list_to_int_dict
-        ),        
+        ),
         string_keys_to_dict(
             'keys hkeys hlist hrlist zkeys zlist zrlist '
             'qlist qrlist qrange qslice qpop_back qpop_front',
             lambda r: r
-        ),        
+        ),
+        string_keys_to_dict(
+            'info',
+            parse_info
+        ),
         {
             'qset': lambda r: True,
         }
